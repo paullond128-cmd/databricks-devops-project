@@ -1,7 +1,9 @@
 import os
 import sys
+import base64
 from databricks.sdk import WorkspaceClient
-from databricks.sdk.service.jobs import Task, NotebookTask, TaskDependency, Source
+from databricks.sdk.service.jobs import Task, NotebookTask, TaskDependency, Source, JobSettings
+from databricks.sdk.service.workspace import ImportFormat, Language
 
 def run_deployment():
     host = os.getenv("DATABRICKS_HOST")
@@ -13,28 +15,32 @@ def run_deployment():
 
     w = WorkspaceClient(host=host, token=token)
     user = w.current_user.me()
-    
+
     base_path = f"/Users/{user.user_name}/Housing_Project"
-    
+
     # 1. UPLOAD NOTEBOOKS TO WORKSPACE
-    # This is the missing piece! We upload local files to the Databricks Workspace.
-    print("📤 Uploading notebooks to Databricks Workspace...")
+    print(f"📤 Uploading notebooks to Databricks Workspace ({base_path})...")
+    w.workspace.mkdirs(base_path)
+
     local_notebooks_dir = "notebooks"
-    
-    # We loop through the local notebooks folder and upload each file
-    for filename in os.listdir(local_notebooks_dir):
+    for filename in sorted(os.listdir(local_notebooks_dir)):
         if filename.endswith(".py"):
             local_path = os.path.join(local_notebooks_dir, filename)
-            # The workspace path removes the '.py' extension as Databricks treats them as notebooks
             workspace_path = f"{base_path}/{filename.replace('.py', '')}"
-            
-            with open(local_path, "r") as f:
-                content = f.read()
-                w.workspace.export_create(path=workspace_path, content=content, format="SOURCE")
+
+            with open(local_path, "rb") as f:
+                content_b64 = base64.b64encode(f.read()).decode("utf-8")
+                w.workspace.import_(
+                    path=workspace_path,
+                    content=content_b64,
+                    format=ImportFormat.SOURCE,
+                    language=Language.PYTHON,
+                    overwrite=True
+                )
             print(f"  - Uploaded {filename} to {workspace_path}")
 
     # 2. Define Paths for the Job
-    notebook_paths = {
+    notebooks = {
         "bronze": f"{base_path}/01_bronze_ingest",
         "silver": f"{base_path}/02_silver_clean",
         "gold": f"{base_path}/03_gold_aggregate",
@@ -51,18 +57,34 @@ def run_deployment():
         Task(task_key="rag_agent", depends_on=[TaskDependency(task_key="gold")], notebook_task=NotebookTask(notebook_path=notebooks["rag"], source=Source.WORKSPACE)),
     ]
 
-    # 4. Deploy and Trigger
-    job = w.jobs.create(
-        name="Housing_Medallion_Production_Pipeline",
-        tasks=tasks,
-        max_concurrent_runs=1,
-    )
-    print(f"🚀 Job Deployed! Job ID: {job.job_id}")
+    # 4. Deploy or Update Job
+    job_name = "Housing_Medallion_Production_Pipeline"
+    existing_jobs = list(w.jobs.list(name=job_name))
+    if existing_jobs:
+        job_id = existing_jobs[0].job_id
+        w.jobs.reset(
+            job_id=job_id,
+            new_settings=JobSettings(
+                name=job_name,
+                tasks=tasks,
+                max_concurrent_runs=1,
+            )
+        )
+        print(f"🔄 Existing Job updated! Job ID: {job_id}")
+    else:
+        job = w.jobs.create(
+            name=job_name,
+            tasks=tasks,
+            max_concurrent_runs=1,
+        )
+        job_id = job.job_id
+        print(f"🚀 Job Deployed! Job ID: {job_id}")
 
+    # 5. Trigger the Run
     print("🏃 Triggering a smoke test run...")
-    run = w.jobs.run_now(job_id=job.job_id)
+    run = w.jobs.run_now(job_id=job_id)
     print(f"✅ Run started! Run ID: {run.run_id}")
-    print(f"📈 View your run here: {host}/#job/{job.job_id}/run/{run.run_id}")
+    print(f"📈 View your run here: {host}/#job/{job_id}/run/{run.run_id}")
 
 if __name__ == "__main__":
     run_deployment()

@@ -7,7 +7,8 @@ print("🚀 Starting Gold Aggregation...")
 df = spark.table("housing_silver")
 
 # Aggregation: Average price per city
-df_gold = df.groupBy("city").avg("price")
+from pyspark.sql.functions import avg
+df_gold = df.groupBy("city").agg(avg("price").alias("avg_price"))
 
 df_gold.write.format("delta").mode("overwrite").saveAsTable("housing_gold_report")
 print("✅ Gold report 'housing_gold_report' updated.")

@@ -8,7 +8,11 @@ from pyspark.ml.feature import StringIndexer, VectorAssembler
 from pyspark.ml.evaluation import RegressionEvaluator
 
 # 1. Initialize MLflow Experiment
-mlflow.set_experiment("/Users/arjun/Housing_Project/Price_Prediction_Model")
+try:
+    current_user = spark.sql("SELECT current_user()").first()[0]
+    mlflow.set_experiment(f"/Users/{current_user}/Housing_Project/Price_Prediction_Model")
+except Exception:
+    mlflow.set_experiment("Price_Prediction_Model")
 
 print("🚀 Starting ML Training with MLflow...")
 
@@ -47,5 +51,15 @@ with mlflow.start_run(run_name="Housing_Linear_Regression") as run:
     print(f"✅ Model trained. RMSE: {rmse}")
 
     # Log Model to MLflow Registry
-    mlflow.spark.log_model(model, "model", registered_model_name="housing_price_model")
-    print("🚀 Model logged to MLflow Model Registry as 'housing_price_model'")
+    try:
+        # On Databricks serverless compute, SparkML requires a UC volume tmpdir
+        dfs_tmp = "/Volumes/workspace/default/housing_landing"
+        mlflow.spark.log_model(model, "model", dfs_tmpdir=dfs_tmp, registered_model_name="housing_price_model")
+        print("🚀 Model logged to MLflow Model Registry as 'housing_price_model'")
+    except Exception as e:
+        print(f"⚠️ MLflow model registry logging failed: {e}")
+        try:
+            mlflow.spark.log_model(model, "model", dfs_tmpdir="/Volumes/workspace/default/housing_landing")
+            print("🚀 Model logged as MLflow artifact.")
+        except Exception as e2:
+            print(f"⚠️ Fallback model logging note: {e2}")
