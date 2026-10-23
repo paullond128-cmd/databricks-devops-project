@@ -13,9 +13,28 @@ def run_deployment():
 
     w = WorkspaceClient(host=host, token=token)
     user = w.current_user.me()
-
+    
     base_path = f"/Users/{user.user_name}/Housing_Project"
-    notebooks = {
+    
+    # 1. UPLOAD NOTEBOOKS TO WORKSPACE
+    # This is the missing piece! We upload local files to the Databricks Workspace.
+    print("📤 Uploading notebooks to Databricks Workspace...")
+    local_notebooks_dir = "notebooks"
+    
+    # We loop through the local notebooks folder and upload each file
+    for filename in os.listdir(local_notebooks_dir):
+        if filename.endswith(".py"):
+            local_path = os.path.join(local_notebooks_dir, filename)
+            # The workspace path removes the '.py' extension as Databricks treats them as notebooks
+            workspace_path = f"{base_path}/{filename.replace('.py', '')}"
+            
+            with open(local_path, "r") as f:
+                content = f.read()
+                w.workspace.import(path=workspace_path, content=content, format="SOURCE")
+            print(f"  - Uploaded {filename} to {workspace_path}")
+
+    # 2. Define Paths for the Job
+    notebook_paths = {
         "bronze": f"{base_path}/01_bronze_ingest",
         "silver": f"{base_path}/02_silver_clean",
         "gold": f"{base_path}/03_gold_aggregate",
@@ -23,6 +42,7 @@ def run_deployment():
         "rag": f"{base_path}/05_rag_agent",
     }
 
+    # 3. Define the DAG
     tasks = [
         Task(task_key="bronze", notebook_task=NotebookTask(notebook_path=notebooks["bronze"], source=Source.WORKSPACE)),
         Task(task_key="silver", depends_on=[TaskDependency(task_key="bronze")], notebook_task=NotebookTask(notebook_path=notebooks["silver"], source=Source.WORKSPACE)),
@@ -31,7 +51,7 @@ def run_deployment():
         Task(task_key="rag_agent", depends_on=[TaskDependency(task_key="gold")], notebook_task=NotebookTask(notebook_path=notebooks["rag"], source=Source.WORKSPACE)),
     ]
 
-    # 1. Deploy the Job
+    # 4. Deploy and Trigger
     job = w.jobs.create(
         name="Housing_Medallion_Production_Pipeline",
         tasks=tasks,
@@ -39,7 +59,6 @@ def run_deployment():
     )
     print(f"🚀 Job Deployed! Job ID: {job.job_id}")
 
-    # 2. TRIGGER THE RUN (The missing step!)
     print("🏃 Triggering a smoke test run...")
     run = w.jobs.run_now(job_id=job.job_id)
     print(f"✅ Run started! Run ID: {run.run_id}")
