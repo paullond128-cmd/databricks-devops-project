@@ -30,7 +30,7 @@ def run_deployment():
             
             with open(local_path, "r") as f:
                 content = f.read()
-                w.workspace.import_content(path=workspace_path, content=content, format="SOURCE")
+                w.workspace.export_create(path=workspace_path, content=content, format="SOURCE")
             print(f"  - Uploaded {filename} to {workspace_path}")
 
     # 2. Define Paths for the Job
