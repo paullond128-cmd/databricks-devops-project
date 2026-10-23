@@ -6,6 +6,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production  # <--- ADD THIS LINE HERE
     steps:
       - uses: actions/checkout@v3
       - name: Set up Python
