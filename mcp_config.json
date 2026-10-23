@@ -1,0 +1,34 @@
+# MCP Server Definition for Databricks Housing Agent
+# This is a conceptual definition of how this agent would be registered as an MCP tool
+
+{
+  "mcp_server": {
+    "name": "databricks-housing-agent",
+    "description": "An agent that can query the Housing Gold Medallion layer using Text-to-SQL",
+    "version": "1.0.0",
+    "tools": [
+      {
+        "name": "query_housing_data",
+        "description": "Retrieves housing price analytics from the Gold Delta table",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "description": "The natural language question about housing prices"
+            }
+          },
+          "required": ["question"]
+        },
+        "implementation": "notebooks/05_rag_agent.py"
+      }
+    ],
+    "resources": [
+      {
+        "uri": "databricks://gold/housing_report",
+        "name": "Housing Gold Report",
+        "mimeType": "text/csv"
+      }
+    ]
+  }
+}

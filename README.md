@@ -1,37 +1,38 @@
-# Databricks DevOps & MLOps Medallion Project
+# Databricks DevOps, MLOps & LLMOps Medallion Project
 
-This project demonstrates a production-ready DevOps and MLOps lifecycle for Databricks using the Medallion Architecture.
+This project demonstrates a production-ready lifecycle for Databricks, spanning Data Engineering, Machine Learning, and Generative AI.
 
 ## 📂 Project Structure
-- `notebooks/`: Contains the data and ML pipeline logic.
+- `notebooks/`: The logic layer.
     - `01_bronze_ingest.py`: Raw ingestion.
     - `02_silver_clean.py`: Data cleansing.
     - `03_gold_aggregate.py`: Business reports.
-    - `04_ml_model_training.py`: ML Model training and MLflow tracking.
-- `scripts/`: Contains the Python SDK script used to deploy the workflow as code.
-- `.github/workflows/`: contains the CI/CD automation for GitHub Actions.
-
-## 🛠️ How to use this project
-
-### 1. Setup Databricks Secrets
-In your GitHub Repository, go to **Settings > Secrets and variables > Actions** and add:
-- `DB_HOST`: Your Databricks Workspace URL.
-- `DB_TOKEN`: Your Personal Access Token (PAT).
-
-### 2. Deploy
-1. Push your code to the `main` branch.
-2. GitHub Actions will automatically trigger the `deploy.yml` workflow.
-3. The `deploy_pipeline.py` script will create the Medallion Workflow in your Databricks workspace.
+    - `04_ml_model_training.py`: ML Training + MLflow tracking.
+    - `05_rag_agent.py`: RAG Agent (Text-to-SQL).
+- `scripts/`: Infrastructure as Code (IaC).
+    - `deploy_pipeline.py`: SDK script to deploy the full DAG.
+- `.github/workflows/`: CI/CD automation.
+- `mcp_config.json`: MCP Server definition for AI connectivity.
 
 ## 📐 Architecture
 
-### Medallion Data Pipeline
-- **Bronze**: Raw ingestion.
-- **Silver**: Data cleaning and filtering.
-- **Gold**: Business aggregations.
+### 1. DataOps (Medallion)
+Bronze $\rightarrow$ Silver $\rightarrow$ Gold. Ensures high-quality, curated data.
 
-### MLOps Pipeline
-We use **MLflow** to implement the ML lifecycle:
-1. **Experiment Tracking**: Every time `04_ml_model_training.py` runs, it logs the `RMSE` metric and hyperparameters to MLflow.
-2. **Model Registry**: The best model is saved to the **MLflow Model Registry** as `housing_price_model`.
-3. **Reproducibility**: Because the training is part of the GitHub-deployed workflow, we can reproduce the exact model version for any date.
+### 2. MLOps (Lifecycle)
+Using **MLflow**, we implement:
+- **Experiment Tracking**: Log metrics (RMSE) and hyperparameters.
+- **Model Registry**: Versioning and promoting models to production.
+
+### 3. LLMOps (RAG & MCP)
+We implement a **RAG (Retrieval-Augmented Generation)** agent to allow users to "chat with their data."
+
+- **The RAG Pattern**: 
+  `User Question` $\rightarrow$ `LLM converts to SQL` $\rightarrow$ `Query Gold Table` $\rightarrow$ `LLM formats Answer`.
+- **MCP (Model Context Protocol)**:
+  We use an **MCP Server** definition (`mcp_config.json`) to standardize how an AI Model (like Claude or GPT) connects to the Databricks "Housing Agent" tool. This decouples the LLM from the data source.
+
+## 🛠️ How to Deploy
+1. **Secrets**: Add `DB_HOST` and `DB_TOKEN` to GitHub Secrets.
+2. **Push**: Push code to `main` branch.
+3. **Result**: GitHub Actions deploys the full pipeline (Data $\rightarrow$ ML $\rightarrow$ RAG) to your workspace.

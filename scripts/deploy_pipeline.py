@@ -22,6 +22,7 @@ def run_deployment():
         "silver": f"{base_path}/02_silver_clean",
         "gold": f"{base_path}/03_gold_aggregate",
         "ml": f"{base_path}/04_ml_model_training",
+        "rag": f"{base_path}/05_rag_agent",
     }
 
     # 3. Define the DAG (Dependency Graph)
@@ -44,6 +45,11 @@ def run_deployment():
             task_key="ml_training",
             depends_on=[TaskDependency(task_key="silver")],
             notebook_task=NotebookTask(notebook_path=notebooks["ml"], source=Source.WORKSPACE),
+        ),
+        Task(
+            task_key="rag_agent",
+            depends_on=[TaskDependency(task_key="gold")],
+            notebook_task=NotebookTask(notebook_path=notebooks["rag"], source=Source.WORKSPACE),
         ),
     ]
 
